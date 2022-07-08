@@ -1,0 +1,474 @@
+[
+    {
+        "Category": "Hand to Hand",
+        "ControllerIndex": 0,
+        "Description": "Hand to Hand Settings",
+        "MicLEDMode": 2,
+        "Name": "Hand To Hand",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 0,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Sword",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Either Hand GameCube Triggermode.",
+        "MicLEDMode": 2,
+        "Name": "One Handed Sword",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+           
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 1,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Dagger",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Either Hand GameCube Triggermode",
+        "MicLEDMode": 2,
+        "Name": "One Dagger",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 1,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Axe",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Resistance at 1.",
+        "MicLEDMode": 2,
+        "Name": "One Handed Axe",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            1
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Mace",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Resistance at 2.",
+        "MicLEDMode": 2,
+        "Name": "One Handed Mace",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            2
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Staves",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Resistance going from 3.",
+        "MicLEDMode": 2,
+        "Name": "Staff",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            3
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Magic",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Vibrate Pulse Trigger",
+        "MicLEDMode": 2,
+        "Name": "Magic",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 11,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Shield",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Left Shield Resistance Trigger 1",
+        "MicLEDMode": 2,
+        "Name": "Shield",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            1
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Torch",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Either Side Torch Resistance Trigger 1",
+        "MicLEDMode": 2,
+        "Name": "Torch",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            1
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "2Hand Sword",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Left Hand Resistance at 3.",
+        "MicLEDMode": 2,
+        "Name": "Two Handed Sword Block",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            3
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "2Hand Axe Mace",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Left Hand Resistance at 3.",
+        "MicLEDMode": 2,
+        "Name": "Two Handed Axe Mace Block",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            3
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Bow",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting Bow Bash For Left Hand.",
+        "MicLEDMode": 2,
+        "Name": "Two Handed Bow Bash",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            1
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "2Hand Sword",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Right Hand Resistance at 3.",
+        "MicLEDMode": 2,
+        "Name": "Two Handed Sword",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            3
+        ],
+        "TriggerSide": 2,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "2Hand AxeMace",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Right Hand Resistance at 3.",
+        "MicLEDMode": 2,
+        "Name": "Two Handed Axe/Mace",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            3
+        ],
+        "TriggerSide": 2,
+        "TriggerThreshold": 0,
+        "TriggerType": 13,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Bow",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Drawing Bow",
+        "MicLEDMode": 2,
+        "Name": "Two Handed Bow",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            0,
+            8,
+            2,
+            8
+        ],
+        "TriggerSide": 2,
+        "TriggerThreshold": 0,
+        "TriggerType": 14,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Crossbow",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Right Crossbow Hard Trigger",
+        "MicLEDMode": 2,
+        "Name": "Crossbow",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            
+        ],
+        "TriggerSide": 2,
+        "TriggerThreshold": 0,
+        "TriggerType": 4,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    },
+    {
+        "Category": "Crossbow",
+        "ControllerIndex": 0,
+        "Description": "Trigger Setting For Left Trigger when Crossbow Equipped (aiming)",
+        "MicLEDMode": 2,
+        "Name": "Crossbow Trigger",
+        "PlayerLED": [
+            false,
+            false,
+            false,
+            false,
+            false
+        ],
+        "RGBUpdate": [
+            0,
+            0,
+            0
+        ],
+        "TriggerParams": [
+            
+        ],
+        "TriggerSide": 1,
+        "TriggerThreshold": 0,
+        "TriggerType": 0,
+        "customTriggerMode": 0,
+        "playerLEDNewRev": 5
+    }
+]
