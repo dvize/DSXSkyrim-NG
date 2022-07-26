@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(
 	DSXSkyrim
-	VERSION 1.1.0
+	VERSION 1.4.0
 	LANGUAGES CXX
 )
 

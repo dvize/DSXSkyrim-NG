@@ -12,14 +12,15 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <format>
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
+#include <thread>
+#include <chrono>
 
 #define SERVER "127.0.0.1"	// or "localhost" - ip address of UDP server
 #define BUFLEN 512			// max length of answer
 #define PORT 6969			// the port on which to listen for incoming data
 
 using nlohmann::json;
+
 
 namespace DSXSkyrimEvent
 {
@@ -29,10 +30,19 @@ namespace DSXSkyrimEvent
 		if (msg->type == SKSE::MessagingInterface::kDataLoaded) {
 			logger::info("Data Load CallBack Trigger!");
 
+			if (DSXSkyrim::EquipStartEventHandler::RegisterEquipStartEvent())
+				logger::info("Register Equip Event!");
+
+		}
+
+		if (msg->type == SKSE::MessagingInterface::kPostLoadGame) {
+			logger::info("Data Load CallBack Trigger!");
 
 			if (DSXSkyrim::EquipStartEventHandler::RegisterEquipStartEvent())
 				logger::info("Register Equip Event!");
+
 		}
+
 	}
 
 }
@@ -45,11 +55,14 @@ namespace DSXSkyrim
 	sockaddr_in server;
 	DSXSkyrim::TriggersCollection userTriggers;
 	vector<Packet> myPackets;
+	extern string actionLeft;
+	extern string actionRight;
 
 	json to_json(json& j, const TriggerSetting& p)
 	{
 		j = {
 			{ "Name", p.name },
+			{ "CustomFormID", p.customFormID },
 			{ "Category", p.category },
 			{ "Description", p.description },
 			{ "TriggerSide", p.triggerSide },
@@ -70,6 +83,7 @@ namespace DSXSkyrim
 	void from_json(const json& j, TriggerSetting& p)
 	{
 		j.at("Name").get_to(p.name);
+		j.at("CustomFormID").get_to(p.customFormID);
 		j.at("Category").get_to(p.category);
 		j.at("Description").get_to(p.description);
 		j.at("TriggerSide").get_to(p.triggerSide);
@@ -277,7 +291,39 @@ namespace DSXSkyrim
 		}
 	}
 
+	void sendToDSX2(string& s)
+	{
+		//convert json to string and then char array
 
+		char message[512];
+		strcpy(message, s.c_str());
+		for (int i = s.size(); i < 512; i++) {
+			message[i] = '\0';
+		}
+
+		// send the message
+
+		if (sendto(mysocket, message, strlen(message), 0, (sockaddr*)&server, sizeof(sockaddr_in)) == SOCKET_ERROR) {
+			logger::error("sendtodsx() failed with error code: %d", WSAGetLastError());
+		}
+
+
+		//lastSend1 = s;
+	}
+
+	void background(std::chrono::milliseconds interval)
+	{
+		while (1) {
+			
+			if (!actionLeft.empty()) {
+				sendToDSX2(actionLeft);
+			}
+			if (!actionRight.empty()) {
+				sendToDSX2(actionRight);
+			}
+			std::this_thread::sleep_for(interval);
+		}
+	}
 }
 
 

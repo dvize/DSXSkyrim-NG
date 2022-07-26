@@ -12,13 +12,22 @@ void Init()
 	logger::info("Startup UDP Function");
 	DSXSkyrim::StartupUDP();
 
-	
-	
-
 	logger::info("Running EquipStartEventHandler::RegisterEquipStartEvent");
 
 	auto g_message = SKSE::GetMessagingInterface();
 	g_message->RegisterListener(DSXSkyrimEvent::EventCallback);
+
+	logger::info("Running UDP Sender Loop Event");
+    auto interval = std::chrono::milliseconds(100);
+	
+	std::thread background_worker(&DSXSkyrim::background, interval);
+	background_worker.detach();
+	// main work
+
+	
+	
+
+	
 
 	
 }

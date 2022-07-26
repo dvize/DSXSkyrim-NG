@@ -1,23 +1,33 @@
 #include "HelperFunc.h"
 //#include "Main.h"
 #include "Events.h"
+#include <iostream>
 #include <string>
+#include <sstream>
 #include <nlohmann/json.hpp>
+
 
 namespace DSXSkyrim
 {
 	
 	using json = nlohmann::json;
-	using socket_t = decltype(socket(0, 0, 0));
+	
 
 	extern DSXSkyrim::TriggersCollection userTriggers;
-	extern socket_t mysocket;
-	extern sockaddr_in server;
 	extern vector<Packet> myPackets;
-	bool nextequip = false;
-	bool firstequip = true;
-	string action1;
-	string action2;
+	string actionLeft;
+	string actionRight;
+	bool PlayerCheck;
+	RE::FormID theobjectid;
+	RE::PlayerCharacter* player;
+	bool lefthand;
+	bool righthand;
+	RE::FormID lefthandID = 0;
+	RE::FormID righthandID = 0;
+	int weaponhands;  // 0 for left hand, 1 for right hand, 2 for both hands
+	RE::FormID finalID = 0;
+	std::string weaponname = "";
+
 	
 	bool EquipStartEventHandler::RegisterEquipStartEvent()
 	{
@@ -37,8 +47,7 @@ namespace DSXSkyrim
 		return true;
 	}
 
-
-	void sendToDSX(string &s)
+	void sendToDSX(string& s)
 	{
 		//convert json to string and then char array
 
@@ -47,16 +56,16 @@ namespace DSXSkyrim
 		for (int i = s.size(); i < 512; i++) {
 			message[i] = '\0';
 		}
-		
+
 		// send the message
-		
+
 		if (sendto(mysocket, message, strlen(message), 0, (sockaddr*)&server, sizeof(sockaddr_in)) == SOCKET_ERROR) {
 			logger::error("sendtodsx() failed with error code: %d", WSAGetLastError());
 		}
 
+
 		//lastSend1 = s;
 	}
-
 
 	void to_json(json& j, const Instruction& p)
 	{
@@ -132,23 +141,49 @@ namespace DSXSkyrim
 
 		//----------------------Check if Player-----------------------------------------------
 
-		auto PlayerCheck = a_event->actor->IsPlayerRef();
+		PlayerCheck = a_event->actor->IsPlayerRef();
 
-		auto theobjectid = a_event->baseObject;
-		auto player = RE::PlayerCharacter::GetSingleton();
+		theobjectid = a_event->baseObject;
+		player = RE::PlayerCharacter::GetSingleton();
 		
-
+		
 
 		if (PlayerCheck && validScenario(theobjectid))
 		{
-			bool lefthand;
-			bool righthand;
-			RE::FormID lefthandID = 0;
-			RE::FormID righthandID = 0;
-			int weaponhands;  // 0 for left hand, 1 for right hand, 2 for both hands
-			RE::FormID finalID = 0;
-			std::string weaponname = "";
+			
+			bool formidcustomweap = false;
+			
+			//check if its a custom form first before switching to generic weapontype
+			
+			for (int i = 25; i < userTriggers.TriggersList.size(); i++) 
+			{
+				if (!(userTriggers.TriggersList[i].customFormID.empty())) 
+				{
+					auto strtempformid = userTriggers.TriggersList[i].customFormID;
+					std::istringstream converter{ strtempformid };
+					long long int value = 0;
+					converter >> std::hex >> value;
 
+					logger::info(FMT_STRING("Set vars for inDec"));
+					
+
+					if (theobjectid == value) {
+						logger::info(FMT_STRING("Found custom weapon of FormID: {}"), value);
+						formidcustomweap = true;
+
+						if (userTriggers.TriggersList[i].triggerSide == 1) {
+							//left trigger assign for custom
+							actionLeft = PacketToString(myPackets.at(i));
+
+						} else if (userTriggers.TriggersList[i].triggerSide == 2) {
+							//right trigger assign for custom
+							actionRight = PacketToString(myPackets.at(i));
+						}
+					}
+
+				}
+				
+			}
 			//which hand was it? or both
 
 			lefthand = player->GetEquippedObject(true);
@@ -161,12 +196,9 @@ namespace DSXSkyrim
 				righthandID = player->GetEquippedObject(false)->GetFormID();
 			}
 
+
 			if (a_event->equipped) 
 			{
-				if (!firstequip) {
-					nextequip = true;
-				}
-				firstequip = false;
 
 				// Set which hand its in and the ID to use from now on
 				if (lefthandID == righthandID) {
@@ -199,146 +231,147 @@ namespace DSXSkyrim
 				*/
 				logger::debug("After unequip the case statement was reached"); //there is an issue if equipping runs the unequip and then equip directly (does not hit)
 
-				switch (equipped_type) {
-				case 0:
-					//call the class trigger setting for hand melee and then use weaponhands to determine which trigger it is for.
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(0));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(1));
-					} else {
-						action1 = PacketToString(myPackets.at(0));
-						action2 = PacketToString(myPackets.at(1));
-					}
-					weaponname = "HandToHandMelee";
-					break;
-				case 1:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(2));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(3));
-					} else {
-						action1 = PacketToString(myPackets.at(2));
-						action2 = PacketToString(myPackets.at(3));
-					}
-					weaponname = "OneHandSword";
-					break;
-				case 2:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(4));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(5));
-					} else {
-						action1 = PacketToString(myPackets.at(4));
-						action2 = PacketToString(myPackets.at(5));
-					}
-					weaponname = "OneHandDagger";
-					break;
-				case 3:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(6));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(7));
-					} else {
-						action1 = PacketToString(myPackets.at(6));
-						action2 = PacketToString(myPackets.at(7));
-					}
-					weaponname = "OneHandAxe";
-					break;
-				case 4:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(8));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(9));
-					} else {
-						action1 = PacketToString(myPackets.at(8));
-						action2 = PacketToString(myPackets.at(9));
-					}
-					weaponname = "OneHandMace";
-					break;
-				case 5:
-					if (weaponhands == 2) {
-						action1 = PacketToString(myPackets.at(17));  //Two Hand Sword Block
-						action2 = PacketToString(myPackets.at(18));  //Two Hand Sword 
-					}
-					weaponname = "TwoHandSword";
-					break;
-				case 6:
-					if(weaponhands == 2)
-					{
-						action1 = PacketToString(myPackets.at(19));  //Two Hand Axe Mace Block
-						action2 = PacketToString(myPackets.at(20));  //Two Hand Axe Mace
-					}
-					weaponname = "TwoHandAxeMace";
-					break;
-				case 7:
-					if (weaponhands == 2) {
-						action1 = PacketToString(myPackets.at(21));  //Bow Bash Setting
-						action2 = PacketToString(myPackets.at(22));  //Bow Draw Setting
-					}
-					weaponname = "Bow";
-					break;
-				case 8:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(10));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(11));
-					} else {
-						action1 = PacketToString(myPackets.at(10));
-						action2 = PacketToString(myPackets.at(11));
-					}
-					weaponname = "Staff";
-					break;
-				case 9:
-					if (weaponhands == 2) {
-						action1 = PacketToString(myPackets.at(23));  //Left Trigger (aiming) crossbow
-						action2 = PacketToString(myPackets.at(24));  //Right Trigger Crossbow
-					}
-					weaponname = "Crossbow";
-					break;
-				case 10:
-					action1 = PacketToString(myPackets.at(14));  //always left hand.
-					weaponname = "Shield";
-					break;
-				case 11:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(12));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(13));
-					} else {
-						action1 = PacketToString(myPackets.at(12));
-						action2 = PacketToString(myPackets.at(13));
-					}
-					weaponname = "Magic";
-					break;
-				case 12:
-					if (weaponhands == 0) {
-						action1 = PacketToString(myPackets.at(15));
-					} else if (weaponhands == 1) {
-						action1 = PacketToString(myPackets.at(16));
-					} else {
-						action1 = PacketToString(myPackets.at(15));
-						action2 = PacketToString(myPackets.at(16));
-					}
-					weaponname = "Torch";
-					break;
+				if (!formidcustomweap) 
+				{
+					switch (equipped_type) {
+					case 0:
+						//call the class trigger setting for hand melee and then use weaponhands to determine which trigger it is for.
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(0));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(1));
+						} else {
+							actionLeft = PacketToString(myPackets.at(0));
+							actionRight = PacketToString(myPackets.at(1));
+						}
+						weaponname = "HandToHandMelee";
+						break;
+					case 1:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(2));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(3));
+						} else {
+							actionLeft = PacketToString(myPackets.at(2));
+							actionRight = PacketToString(myPackets.at(3));
+						}
+						weaponname = "OneHandSword";
+						break;
+					case 2:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(4));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(5));
+						} else {
+							actionLeft = PacketToString(myPackets.at(4));
+							actionRight = PacketToString(myPackets.at(5));
+						}
+						weaponname = "OneHandDagger";
+						break;
+					case 3:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(6));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(7));
+						} else {
+							actionLeft = PacketToString(myPackets.at(6));
+							actionRight = PacketToString(myPackets.at(7));
+						}
+						weaponname = "OneHandAxe";
+						break;
+					case 4:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(8));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(9));
+						} else {
+							actionLeft = PacketToString(myPackets.at(8));
+							actionRight = PacketToString(myPackets.at(9));
+						}
+						weaponname = "OneHandMace";
+						break;
+					case 5:
+						if (weaponhands == 2) {
+							actionLeft = PacketToString(myPackets.at(17));	 //Two Hand Sword Block
+							actionRight = PacketToString(myPackets.at(18));	 //Two Hand Sword
+						}
+						weaponname = "TwoHandSword";
+						break;
+					case 6:
+						if (weaponhands == 2) {
+							actionLeft = PacketToString(myPackets.at(19));	 //Two Hand Axe Mace Block
+							actionRight = PacketToString(myPackets.at(20));	 //Two Hand Axe Mace
+						}
+						weaponname = "TwoHandAxeMace";
+						break;
+					case 7:
+						if (weaponhands == 2) {
+							actionLeft = PacketToString(myPackets.at(21));	 //Bow Bash Setting
+							actionRight = PacketToString(myPackets.at(22));	 //Bow Draw Setting
+						}
+						weaponname = "Bow";
+						break;
+					case 8:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(10));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(11));
+						} else {
+							actionLeft = PacketToString(myPackets.at(10));
+							actionRight = PacketToString(myPackets.at(11));
+						}
+						weaponname = "Staff";
+						break;
+					case 9:
+						if (weaponhands == 2) {
+							actionLeft = PacketToString(myPackets.at(23));	 //Left Trigger (aiming) crossbow
+							actionRight = PacketToString(myPackets.at(24));	 //Right Trigger Crossbow
+						}
+						weaponname = "Crossbow";
+						break;
+					case 10:
+						actionLeft = PacketToString(myPackets.at(14));	//always left hand.
+						weaponname = "Shield";
+						break;
+					case 11:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(12));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(13));
+						} else {
+							actionLeft = PacketToString(myPackets.at(12));
+							actionRight = PacketToString(myPackets.at(13));
+						}
+						weaponname = "Magic";
+						break;
+					case 12:
+						if (weaponhands == 0) {
+							actionLeft = PacketToString(myPackets.at(15));
+						} else if (weaponhands == 1) {
+							actionRight = PacketToString(myPackets.at(16));
+						} else {
+							actionLeft = PacketToString(myPackets.at(15));
+							actionRight = PacketToString(myPackets.at(16));
+						}
+						weaponname = "Torch";
+						break;
 
-				default:
-					weaponname = "Not a Weapon";
-					break;
+					default:
+						weaponname = "Not a Weapon";
+						break;
+					}
 				}
 
-
-				if (action1.empty() && action2.empty()) {
+				if (actionLeft.empty() && actionRight.empty()) {
 					return RE::BSEventNotifyControl::kContinue;
-				} else if (!action1.empty() && action2.empty()) {
-					sendToDSX(action1);
-				} else if (action1.empty() && !action2.empty()) {
-					sendToDSX(action2);
+				} else if (!actionLeft.empty() && actionRight.empty()) {
+					sendToDSX(actionLeft);
+				} else if (actionLeft.empty() && !actionRight.empty()) {
+					sendToDSX(actionRight);
 
-				} else if (!action1.empty() && !action2.empty()) {
-					sendToDSX(action1);
-					sendToDSX(action2);
+				} else if (!actionLeft.empty() && !actionRight.empty()) {
+					sendToDSX(actionLeft);
+					sendToDSX(actionRight);
 				}
 				
 				logger::debug("Player Equip Detected of Weapon: {0} and using WeaponHands of {1}", weaponname, weaponhands);
@@ -355,37 +388,36 @@ namespace DSXSkyrim
 
 				if (!lefthand && !righthand) {
 					//reset both triggers
-					action1 = PacketToString(myPackets.at(0));
-					sendToDSX(action1);
-					action2 = PacketToString(myPackets.at(1));
-					sendToDSX(action2);
+					actionLeft = PacketToString(myPackets.at(0));
+					actionRight = PacketToString(myPackets.at(1));
+					sendToDSX(actionLeft);
+					sendToDSX(actionRight);
 
 					logger::debug("Player UnEquip Detected. Reset Both LeftHand and RightHand Triggers.");
 
 
 				} else if (!lefthand && righthand) {
-					//reset left trigger only
-					logger::debug("Player UnEquip Detected. Reset LeftHand triggers only.");
-					action1 = PacketToString(myPackets.at(0));
-					sendToDSX(action1);
+					
+					logger::debug("Player UnEquip Detected. Reset Left Hand triggers only.");
+					actionRight = PacketToString(myPackets.at(0));
+					sendToDSX(actionRight);
 
 				} else if (lefthand && !righthand) {
-					//reset right trigger only
-					logger::debug("Player UnEquip Detected. Reset RightHand triggers only.");
-					action1 = PacketToString(myPackets.at(1));
-					sendToDSX(action1);
+				
+					logger::debug("Player UnEquip Detected. Reset Right Hand triggers only.");
+ 					actionLeft = PacketToString(myPackets.at(1));
+					sendToDSX(actionLeft);
 
 				}
 
 				
 			}
-			nextequip = false;
+			
 
 		}
 		
 		return RE::BSEventNotifyControl::kContinue;
 	}
-
 
 
 

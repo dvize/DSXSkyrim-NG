@@ -1,10 +1,15 @@
 #include <nlohmann/json.hpp>
+#include <iostream>
+
 
 using namespace std;
 using json = nlohmann::json;
+using socket_t = decltype(socket(0, 0, 0));
 
 namespace DSXSkyrim
 {
+	extern socket_t mysocket;
+	extern sockaddr_in server;
 
 	class EquipStartEventHandler : public RE::BSTEventSink <RE::TESEquipEvent>
 	{
@@ -28,10 +33,13 @@ namespace DSXSkyrim
 		EquipStartEventHandler& operator= (EquipStartEventHandler&&) = delete;
 	};
 
+	
+
 	class TriggerSetting
 	{
 	public:
 		string name;
+		string customFormID;
 		string category;
 		string description;
 		int triggerSide;
@@ -49,6 +57,7 @@ namespace DSXSkyrim
 		{
 			controllerIndex = 0;
 			name = "Default";
+			customFormID = "";
 			category = "One-Handed Bow";
 			description = "Drawing Hand";
 			triggerSide = 2;
@@ -102,5 +111,6 @@ namespace DSXSkyrim
 		vector<TriggerSetting> TriggersList;
 	};
 
+	
 	
 }
