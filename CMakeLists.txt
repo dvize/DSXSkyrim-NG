@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         DSXSkyrim
-        VERSION 1.6.0
+        VERSION 1.6.1
         DESCRIPTION "SKSE Plugin"
         LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)

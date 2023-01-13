@@ -307,7 +307,7 @@ SKSEPluginLoad(const LoadInterface* skse) {
     DSXSkyrim::InitializeMessaging();
 
     log::info("Running UDP Sender Loop Event");
-    auto interval = std::chrono::milliseconds(30000);
+    auto interval = std::chrono::milliseconds(10000);
 
     std::thread background_worker(&DSXSkyrim::background, interval);
     background_worker.detach();

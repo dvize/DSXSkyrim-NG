@@ -3,7 +3,7 @@
         {
             "kind": "git",
             "repository": "https://gitlab.com/colorglass/vcpkg-colorglass",
-            "baseline": "936d3fc546b80fa3e06a945c8a3c23e5c0197ad7",
+            "baseline": "ef8d43afe4d26e842de3d034bff1081cb7990f07",
             "packages": [
                 "articuno",
                 "bethesda-skyrim-scripts",
