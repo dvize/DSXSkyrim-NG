@@ -1,9 +1,5 @@
 build/
-cmake/
-contrib/
-docs/
 dist/
-vcpkg_installed/
-.idea/
-.vs/
-test/
+.vs*/
+extern/CommonLibSSE-NG/
+CMakeUserPresets.json

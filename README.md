@@ -1,12 +1,28 @@
-# DSXSkyrim-NG using CommonLibSSE
+# Combat Music Fix NG
 
-Here is the source code for my project.  It is not pretty and i basically had to learn c++.
-Some issues i had was that the data structures did not allow mixed types(compared to C#) and 
-there probably is some cleaner way to do this.  Also my headers are all messed up so it barely compiles as of now.
+Simple SKSE plugin to fix the never-ending combat music bug. Compatible with multiple game runtimes, using [CommonLibSSE NG](https://github.com/alandtse/CommonLibVR/tree/ng)
 
-I have left this as an example for other hobbyists to mod other games that require C++ (if you using a games mod library like f4se). Otherwise, C# would be 100x easier to implement.
+## Requirements
 
+- [Visual Studio Community 2022](https://visualstudio.microsoft.com/)
+    - Desktop development with C++
+- [CMake](https://cmake.org/)
+    - Add it to your `PATH`
+- [Vcpkg](https://github.com/microsoft/vcpkg#quick-start-windows)
+    - Add a new `VCPKG_ROOT` environment variable pointing to the root folder of vcpkg
 
-If you run the debug plugin dll that is generated, it expects a debugger to be attached.  You can attach to the process in visual studio and it will resume running as expected.  Note, remove the steam drm with steamless from the skyrim.exe 
+## User Requirements
 
-https://github.com/atom0s/Steamless
+- [Address Library for SKSE](https://www.nexusmods.com/skyrimspecialedition/mods/32444)
+    - Needed for SSE/AE
+- [VR Address Library for SKSEVR](https://www.nexusmods.com/skyrimspecialedition/mods/58101)
+    - Needed for VR
+
+## Clone and Build
+Open terminal (e.g., PowerShell) and run the following commands:
+
+```
+git clone --recurse-submodules -j4 https://github.com/gabriel-andreescu/CombatMusicFixNG.git
+cd CombatMusicFixNG
+.\BuildRelease.bat
+```

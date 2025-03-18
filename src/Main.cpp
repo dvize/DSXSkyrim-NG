@@ -1,319 +1,210 @@
-#include <stddef.h>
-#include <fstream>
-#include <iostream>
-#include <nlohmann/json.hpp>
-#include <format>
-#include <thread>
+#include <SKSE/SKSE.h>
 #include <chrono>
-#include <WinSock2.h>
-#include "Main.h"
-#include "PCH.h"
-#include "UDPHelper.h"
-#include "EventManager.h"
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <thread>
+#include <spdlog/sinks/msvc_sink.h>
 
-#pragma comment(lib, "ws2_32.lib")
-#pragma warning(disable : 4996)
+#include "DSXController.hpp"
+#include "EventHandler.h"
 
-using nlohmann::json;
-using namespace RE::BSScript;
-using namespace SKSE;
-using namespace SKSE::stl;
+std::vector<DSX::TriggerSetting> userTriggers;
+std::vector<DSX::Packet> triggerPackets;
+DSX::NetworkManager networkManager;
+DSX::Packet lastLeftPacket;
+DSX::Packet lastRightPacket;
+std::string actionLeft;
+std::string actionRight;
 
-namespace DSXSkyrim
+namespace
 {
-    using socket_t = decltype(socket(0, 0, 0));
+	void InitializeDSX();
+	void BackgroundThread(std::chrono::milliseconds interval);
+	bool LoadTriggerSettings();
+	void GeneratePackets();
 
-    socket_t mysocket;
-    sockaddr_in server;
-    TriggersCollection userTriggers;
-    vector<Packet> myPackets;
+	void MessageHandler(SKSE::MessagingInterface::Message* a_message)
+	{
+		switch (a_message->type) {
+		case SKSE::MessagingInterface::kDataLoaded:
+			logger::info("DataLoaded: Initializing DSX");
+			InitializeDSX();
+			DSX::RegisterEventHandlers();
+			break;
+		case SKSE::MessagingInterface::kPostLoadGame:
+			logger::info("PostLoadGame: Registering handlers and checking weapons");
+			DSX::CheckWeaponOnGameLoad();
+			break;
+		}
+	}
 
-    extern std::string actionLeft;
-    extern std::string actionRight;
+	void InitializeDSX()
+	{
+		logger::info("Initializing DSXSkyrim");
+		if (!networkManager.Initialize()) {
+			logger::error("Failed to initialize network connection");
+			return;
+		}
+		if (!LoadTriggerSettings()) {
+			logger::error("Failed to load trigger settings");
+			return;
+		}
+		GeneratePackets();
 
-    void InitializeMessaging() {
-        if (!GetMessagingInterface()->RegisterListener([](MessagingInterface::Message* message) {
-            switch (message->type) {
-                case MessagingInterface::kDataLoaded: // All ESM/ESL/ESP plugins have loaded, main menu is now active.
-                    // It is now safe to access form data.
-                    log::info("Data Load CallBack Trigger!");
+		auto interval = std::chrono::milliseconds(10000);
+		std::thread backgroundThread(BackgroundThread, interval);
+		backgroundThread.detach();
 
-                    if (EquipStartEventHandler::RegisterEquipStartEvent())
-                        log::info("Register Equip Event!");
-                    break;
+		logger::info("DSXSkyrim initialized successfully");
+	}
 
-                // Skyrim game events.
-                case MessagingInterface::kPostLoadGame: // Player's selected save game has finished loading.
-                    // Data will be a boolean indicating whether the load was successful.
-                    log::info("Post Load Game CallBack Trigger!");
+	bool LoadTriggerSettings()
+	{
+		try {
+			std::ifstream stream(".\\Data\\SKSE\\Plugins\\DSXSkyrim\\DSXSkyrimConfig.json");
+			if (!stream.is_open()) {
+				logger::error("Could not open config file");
+				return false;
+			}
+			nlohmann::json j;
+			stream >> j;
+			userTriggers.clear();
 
-                    if (EquipStartEventHandler::RegisterEquipStartEvent())
-                        log::info("Register Equip Event!");
-                    break;
-            }
-        })) {
-            report_and_fail("Unable to register message listener.");
-        }
-    }
+			for (const auto& item : j) {
+				DSX::TriggerSetting setting;
+				item.at("Name").get_to(setting.name);
+				item.at("formID").get_to(setting.formID);  // Updated to match new JSON
+				item.at("Category").get_to(setting.category);
+				item.at("TriggerSide").get_to(setting.triggerSide);
+				item.at("TriggerType").get_to(setting.triggerType);
+				item.at("customTriggerMode").get_to(setting.customTriggerMode);
+				item.at("playerLEDNewRev").get_to(setting.playerLEDNewRev);
+				item.at("MicLEDMode").get_to(setting.micLEDMode);
+				item.at("TriggerThreshold").get_to(setting.triggerThresh);
+				item.at("ControllerIndex").get_to(setting.controllerIndex);
+				item.at("TriggerParams").get_to(setting.triggerParams);
+				item.at("RGBUpdate").get_to(setting.rgbUpdate);
+				userTriggers.push_back(setting);
+			}
+			logger::info("Loaded {} trigger settings", userTriggers.size());
+			return true;
+		} catch (const std::exception& e) {
+			logger::error("Exception in LoadTriggerSettings: {}", e.what());
+			return false;
+		}
+	}
 
-    json to_json(json& j, const TriggerSetting& p) {
-        j = {{"Name", p.name},
-             {"CustomFormID", p.customFormID},
-             {"Category", p.category},
-             {"Description", p.description},
-             {"TriggerSide", p.triggerSide},
-             {"TriggerType", p.triggerType},
-             {"customTriggerMode", p.customTriggerMode},
-             {"playerLEDNewRev", p.playerLEDNewRev},
-             {"MicLEDMode", p.micLEDMode},
-             {"TriggerThreshold", p.triggerThresh},
-             {"ControllerIndex", p.controllerIndex},
-             {"TriggerParams", p.triggerParams},
-             {"RGBUpdate", p.rgbUpdate},
-             {"PlayerLED", p.playerLED}};
+	void GeneratePackets()
+	{
+		triggerPackets.clear();
+		for (const auto& trigger : userTriggers) {
+			DSX::Packet packet;
+			if (trigger.triggerType == static_cast<int>(DSX::TriggerMode::CustomTriggerValue)) {
+				packet.AddCustomAdaptiveTrigger(
+					trigger.controllerIndex,
+					static_cast<DSX::Trigger>(trigger.triggerSide),
+					static_cast<DSX::TriggerMode>(trigger.triggerType),
+					static_cast<DSX::CustomTriggerValueMode>(trigger.customTriggerMode),
+					{ trigger.triggerParams[0], trigger.triggerParams[1], trigger.triggerParams[2], trigger.triggerParams[3] });
+			} else {
+				packet.AddAdaptiveTrigger(
+					trigger.controllerIndex,
+					static_cast<DSX::Trigger>(trigger.triggerSide),
+					static_cast<DSX::TriggerMode>(trigger.triggerType),
+					{ trigger.triggerParams[0], trigger.triggerParams[1], trigger.triggerParams[2], trigger.triggerParams[3] });
+			}
+			packet.AddTriggerThreshold(trigger.controllerIndex, static_cast<DSX::Trigger>(trigger.triggerSide), trigger.triggerThresh);
+			if (!trigger.rgbUpdate.empty()) {
+				packet.AddRGB(trigger.controllerIndex, trigger.rgbUpdate[0], trigger.rgbUpdate[1], trigger.rgbUpdate[2]);
+			}
+			packet.AddPlayerLED(trigger.controllerIndex, static_cast<DSX::PlayerLEDNewRevision>(trigger.playerLEDNewRev));
+			packet.AddMicLED(trigger.controllerIndex, static_cast<DSX::MicLEDMode>(trigger.micLEDMode));
+			triggerPackets.push_back(packet);
+		}
+		logger::info("Generated {} trigger packets", triggerPackets.size());
+	}
 
-        return j;
-    }
-
-    void from_json(const json& j, TriggerSetting& p) {
-        j.at("Name").get_to(p.name);
-        j.at("CustomFormID").get_to(p.customFormID);
-        j.at("Category").get_to(p.category);
-        j.at("Description").get_to(p.description);
-        j.at("TriggerSide").get_to(p.triggerSide);
-        j.at("TriggerType").get_to(p.triggerType);
-        j.at("customTriggerMode").get_to(p.customTriggerMode);
-        j.at("playerLEDNewRev").get_to(p.playerLEDNewRev);
-        j.at("MicLEDMode").get_to(p.micLEDMode);
-        j.at("TriggerThreshold").get_to(p.triggerThresh);
-        j.at("ControllerIndex").get_to(p.controllerIndex);
-        j.at("TriggerParams").get_to(p.triggerParams);
-        j.at("RGBUpdate").get_to(p.rgbUpdate);
-        j.at("PlayerLED").get_to(p.playerLED);
-    }
-
-    void readFromConfig() {
-        try {
-            json j;
-            std::ifstream stream(".\\Data\\SKSE\\Plugins\\DSXSkyrim\\DSXSkyrimConfig.json");
-            stream >> j;
-            log::info("JSON File Read from location");
-
-            log::info("Try assign j");
-
-            TriggerSetting conversion;
-
-            for (int i = 0; i < j.size(); i++) {
-                conversion = j.at(i).get<TriggerSetting>();
-                userTriggers.TriggersList.push_back(conversion);
-            }
-
-            log::info("Breakpoint here to check value of userTriggers");
-
-        } catch (exception e) {
-            throw e;
-        }
-    }
-
-    void setInstructionParameters(TriggerSetting& TempTrigger, Instruction& TempInstruction) {
-        switch (TempInstruction.type) {
-            case 1:  // TriggerUpdate
-                switch (TempTrigger.triggerParams.size()) {
-                    case 0:
-                        TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                      std::to_string(TempTrigger.triggerSide),
-                                                      std::to_string(TempTrigger.triggerType)};
-                        break;
-
-                    case 1:
-                        TempInstruction.parameters = {
-                            std::to_string(TempTrigger.controllerIndex), std::to_string(TempTrigger.triggerSide),
-                            std::to_string(TempTrigger.triggerType), std::to_string(TempTrigger.triggerParams.at(0))};
-                        break;
-
-                    case 2:
-                        TempInstruction.parameters = {
-                            std::to_string(TempTrigger.controllerIndex), std::to_string(TempTrigger.triggerSide),
-                            std::to_string(TempTrigger.triggerType), std::to_string(TempTrigger.triggerParams.at(0)),
-                            std::to_string(TempTrigger.triggerParams.at(1))};
-                        break;
-
-                    case 3:
-                        TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                      std::to_string(TempTrigger.triggerSide),
-                                                      std::to_string(TempTrigger.triggerType),
-                                                      std::to_string(TempTrigger.triggerParams.at(0)),
-                                                      std::to_string(TempTrigger.triggerParams.at(1)),
-                                                      std::to_string(TempTrigger.triggerParams.at(2))};
-                        break;
-
-                    case 4:
-                        TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                      std::to_string(TempTrigger.triggerSide),
-                                                      std::to_string(TempTrigger.triggerType),
-                                                      std::to_string(TempTrigger.triggerParams.at(0)),
-                                                      std::to_string(TempTrigger.triggerParams.at(1)),
-                                                      std::to_string(TempTrigger.triggerParams.at(2)),
-                                                      std::to_string(TempTrigger.triggerParams.at(3))};
-                        break;
-
-                    case 5:
-                        TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                      std::to_string(TempTrigger.triggerSide),
-                                                      std::to_string(TempTrigger.triggerType),
-                                                      std::to_string(TempTrigger.triggerParams.at(0)),
-                                                      std::to_string(TempTrigger.triggerParams.at(1)),
-                                                      std::to_string(TempTrigger.triggerParams.at(2)),
-                                                      std::to_string(TempTrigger.triggerParams.at(3)),
-                                                      std::to_string(TempTrigger.triggerParams.at(4))};
-                        break;
-
-                    case 6:
-                        TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                      std::to_string(TempTrigger.triggerSide),
-                                                      std::to_string(TempTrigger.triggerType),
-                                                      std::to_string(TempTrigger.triggerParams.at(0)),
-                                                      std::to_string(TempTrigger.triggerParams.at(1)),
-                                                      std::to_string(TempTrigger.triggerParams.at(2)),
-                                                      std::to_string(TempTrigger.triggerParams.at(3)),
-                                                      std::to_string(TempTrigger.triggerParams.at(4)),
-                                                      std::to_string(TempTrigger.triggerParams.at(5))};
-                        break;
-
-                    case 7:
-                        if (TempTrigger.triggerType == 12) {
-                            TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                          std::to_string(TempTrigger.triggerSide),
-                                                          std::to_string(TempTrigger.triggerType),
-                                                          std::to_string(TempTrigger.customTriggerMode),
-                                                          std::to_string(TempTrigger.triggerParams.at(0)),
-                                                          std::to_string(TempTrigger.triggerParams.at(1)),
-                                                          std::to_string(TempTrigger.triggerParams.at(2)),
-                                                          std::to_string(TempTrigger.triggerParams.at(3)),
-                                                          std::to_string(TempTrigger.triggerParams.at(4)),
-                                                          std::to_string(TempTrigger.triggerParams.at(5)),
-                                                          std::to_string(TempTrigger.triggerParams.at(6))};
-                            break;
-                        } else {
-                            TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                          std::to_string(TempTrigger.triggerSide),
-                                                          std::to_string(TempTrigger.triggerType),
-                                                          std::to_string(TempTrigger.triggerParams.at(0)),
-                                                          std::to_string(TempTrigger.triggerParams.at(1)),
-                                                          std::to_string(TempTrigger.triggerParams.at(2)),
-                                                          std::to_string(TempTrigger.triggerParams.at(3)),
-                                                          std::to_string(TempTrigger.triggerParams.at(4)),
-                                                          std::to_string(TempTrigger.triggerParams.at(5)),
-                                                          std::to_string(TempTrigger.triggerParams.at(6))};
-                            break;
-                        }
-
-                    default:
-                        TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                                      std::to_string(TempTrigger.triggerSide),
-                                                      std::to_string(TempTrigger.triggerType)};
-                        break;
-                }
-                break;
-
-            case 2:  // RGBUpdate
-                TempInstruction.parameters = {
-                    std::to_string(TempTrigger.controllerIndex), std::to_string(TempTrigger.rgbUpdate.at(0)),
-                    std::to_string(TempTrigger.rgbUpdate.at(1)), std::to_string(TempTrigger.rgbUpdate.at(2))};
-                break;
-
-            case 3:  // PlayerLED    --- parameters is set to vector<int> so the bool is not coming across. need to fix
-                TempInstruction.parameters = {
-                    std::to_string(TempTrigger.controllerIndex), "false", "false", "false", "false", "false"};
-                break;
-
-            case 4:  // TriggerThreshold
-                TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                              std::to_string(TempTrigger.triggerSide),
-                                              std::to_string(TempTrigger.triggerThresh)};
-                break;
-
-            case 5:  // InstructionType.MicLED
-                TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                              std::to_string(TempTrigger.micLEDMode)};
-                break;
-
-            case 6:  // InstructionType.PlayerLEDNewRevision
-                TempInstruction.parameters = {std::to_string(TempTrigger.controllerIndex),
-                                              std::to_string(TempTrigger.playerLEDNewRev)};
-                break;
-        }
-    }
-
-    void generatePacketInfo(TriggersCollection& userTriggers, vector<Packet>& myPackets) {
-        for (int i = 0; i < userTriggers.TriggersList.size(); i++) {
-            Packet TempPacket;
-            myPackets.push_back(TempPacket);
-
-            myPackets.at(i).instructions[0].type = 1;  // InstructionType.TriggerUpdate
-            setInstructionParameters(userTriggers.TriggersList.at(i), myPackets.at(i).instructions[0]);
-
-            myPackets.at(i).instructions[2].type = 2;  // InstructionType.RGBUpdate
-            setInstructionParameters(userTriggers.TriggersList.at(i), myPackets.at(i).instructions[2]);
-
-            myPackets.at(i).instructions[3].type =
-                3;  // InstructionType.PlayerLED - fk this contains bools and mixed int
-            setInstructionParameters(userTriggers.TriggersList.at(i), myPackets.at(i).instructions[3]);
-
-            myPackets.at(i).instructions[1].type = 4;  // InstructionType.TriggerThreshold
-            setInstructionParameters(userTriggers.TriggersList.at(i), myPackets.at(i).instructions[1]);
-
-            myPackets.at(i).instructions[5].type = 5;  // InstructionType.MicLED
-            setInstructionParameters(userTriggers.TriggersList.at(i), myPackets.at(i).instructions[5]);
-
-            myPackets.at(i).instructions[4].type = 6;  // InstructionType.PlayerLEDNewRevision
-            setInstructionParameters(userTriggers.TriggersList.at(i), myPackets.at(i).instructions[4]);
-        }
-    }
-
-    void background(std::chrono::milliseconds interval) {
-        while (1) {
-            if (!actionLeft.empty()) {
-                sendToDSX(actionLeft);
-            }
-            if (!actionRight.empty()) {
-                sendToDSX(actionRight);
-            }
-            std::this_thread::sleep_for(interval);
-        }
-    }
-
-
-SKSEPluginLoad(const LoadInterface* skse) {
-
-    #ifndef NDEBUG
-        while (!IsDebuggerPresent()) {};
-    #endif
-
-    auto* plugin = PluginDeclaration::GetSingleton();
-    auto version = plugin->GetVersion();
-    log::info("{} {} is loading...", plugin->GetName(), version);
-
-    log::info("Loading JSON Files");
-    DSXSkyrim::readFromConfig();
-
-    log::info("Generate Packet Vector from Config");
-    DSXSkyrim::generatePacketInfo(DSXSkyrim::userTriggers, DSXSkyrim::myPackets);
-
-    log::info("Startup UDP Function");
-    DSXSkyrim::StartupUDP();
-
-    Init(skse);
-    DSXSkyrim::InitializeMessaging();
-
-    log::info("Running UDP Sender Loop Event");
-    auto interval = std::chrono::milliseconds(10000);
-
-    std::thread background_worker(&DSXSkyrim::background, interval);
-    background_worker.detach();
-
-    log::info("{} has finished loading.", plugin->GetName());
-    return true;
+	void BackgroundThread(std::chrono::milliseconds interval)
+	{
+		while (true) {
+			if (!lastLeftPacket.instructions.empty()) {
+				networkManager.SendPacket(lastLeftPacket);
+			}
+			if (!lastRightPacket.instructions.empty()) {
+				networkManager.SendPacket(lastRightPacket);
+			}
+			std::this_thread::sleep_for(interval);
+		}
+	}
 }
 
+
+
+extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() noexcept {
+	SKSE::PluginVersionData v;
+	v.PluginName(Plugin::NAME.data());
+	v.PluginVersion(Plugin::VERSION);
+	v.UsesAddressLibrary(true);
+	v.HasNoStructUse();
+	return v;
+}();
+
+extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface*, SKSE::PluginInfo* pluginInfo)
+{
+	pluginInfo->name = SKSEPlugin_Version.pluginName;
+	pluginInfo->infoVersion = SKSE::PluginInfo::kVersion;
+	pluginInfo->version = SKSEPlugin_Version.pluginVersion;
+	return true;
+}
+
+void InitializeLog()
+{
+	auto path = logger::log_directory();
+	if (!path) {
+		stl::report_and_fail("Failed to find standard logging directory");
+	}
+
+	*path /= Plugin::NAME;
+	*path += ".log";
+
+	// File sink
+	auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
+
+	// Debug output sink (for Visual Studio Output window)
+	auto debugSink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
+
+	// Combine sinks
+	std::vector<spdlog::sink_ptr> sinks{ fileSink, debugSink };
+	auto log = std::make_shared<spdlog::logger>("global log", sinks.begin(), sinks.end());
+
+	log->set_level(spdlog::level::info);
+	log->flush_on(spdlog::level::info);
+
+	set_default_logger(std::move(log));
+	spdlog::set_pattern("[%H:%M:%S:%e] %v");
+
+	logger::info(FMT_STRING("{} v{}"), Plugin::NAME, Plugin::VERSION);
+}
+
+extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
+{
+	
+	InitializeLog();
+
+	logger::info("Game version : {}", a_skse->RuntimeVersion().string());
+
+	// Debugger check after logging is set up
+#ifndef NDEBUG
+	while (!IsDebuggerPresent()) {
+		Sleep(100);
+	}
+	logger::info("Debugger attached, proceeding...");
+#endif
+
+	Init(a_skse);
+
+	const auto messaging = SKSE::GetMessagingInterface();
+	messaging->RegisterListener(MessageHandler);
+
+	return true;
 }
